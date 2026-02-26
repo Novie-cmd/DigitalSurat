@@ -15,7 +15,8 @@ import {
   FileUp,
   Download,
   Check,
-  Edit2
+  Edit2,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -57,6 +58,7 @@ interface Stats {
   suratCount: number;
   disposisiCount: number;
   agendaCount: number;
+  agendaKepalaCount: number;
 }
 
 // --- Components ---
@@ -67,6 +69,7 @@ const Sidebar = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab:
     { id: 'surat-masuk', label: 'Surat Masuk', icon: Mail },
     { id: 'disposisi', label: 'Disposisi', icon: FileText },
     { id: 'agenda', label: 'Agenda Kegiatan', icon: Calendar },
+    { id: 'agenda-kepala', label: 'Agenda Kepala Badan', icon: User },
     { id: 'pencarian', label: 'Pencarian Surat', icon: Search },
   ];
 
@@ -111,6 +114,28 @@ const Sidebar = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab:
 };
 
 const Dashboard = ({ stats }: { stats: Stats }) => {
+  const [recentSurat, setRecentSurat] = useState<SuratMasuk[]>([]);
+  const [recentAgenda, setRecentAgenda] = useState<Agenda[]>([]);
+  const [recentAgendaKepala, setRecentAgendaKepala] = useState<Agenda[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const [suratRes, agendaRes, agendaKepalaRes] = await Promise.all([
+        fetch('/api/surat-masuk'),
+        fetch('/api/agenda'),
+        fetch('/api/agenda-kepala')
+      ]);
+      const suratData = await suratRes.json();
+      const agendaData = await agendaRes.json();
+      const agendaKepalaData = await agendaKepalaRes.json();
+      
+      setRecentSurat(suratData.slice(0, 3));
+      setRecentAgenda(agendaData.slice(0, 3));
+      setRecentAgendaKepala(agendaKepalaData.slice(0, 3));
+    };
+    fetchData();
+  }, []);
+
   return (
     <div className="space-y-8">
       <header>
@@ -118,55 +143,84 @@ const Dashboard = ({ stats }: { stats: Stats }) => {
         <p className="text-slate-500">Selamat datang di sistem manajemen surat masuk.</p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           { label: 'Total Surat Masuk', value: stats.suratCount, icon: Mail, color: 'bg-blue-500' },
           { label: 'Total Disposisi', value: stats.disposisiCount, icon: FileText, color: 'bg-emerald-500' },
-          { label: 'Agenda Mendatang', value: stats.agendaCount, icon: Calendar, color: 'bg-amber-500' },
+          { label: 'Agenda Umum', value: stats.agendaCount, icon: Calendar, color: 'bg-amber-500' },
+          { label: 'Agenda Kepala', value: stats.agendaKepalaCount, icon: User, color: 'bg-purple-500' },
         ].map((stat, i) => (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
             key={stat.label} 
-            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-6"
+            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4"
           >
-            <div className={`${stat.color} p-4 rounded-xl text-white shadow-lg`}>
-              <stat.icon size={24} />
+            <div className={`${stat.color} p-3 rounded-xl text-white shadow-lg shrink-0`}>
+              <stat.icon size={20} />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">{stat.label}</p>
-              <p className="text-3xl font-bold mt-1">{stat.value}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</p>
+              <p className="text-2xl font-bold mt-0.5">{stat.value}</p>
             </div>
           </motion.div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-lg font-bold mb-6">Aktivitas Terbaru</h3>
-          <div className="space-y-6">
-            {[1, 2, 3].map((_, i) => (
-              <div key={i} className="flex gap-4 items-start">
-                <div className="w-2 h-2 mt-2 rounded-full bg-emerald-500" />
-                <div>
-                  <p className="text-sm font-semibold">Surat Masuk Baru dari Dinas Pendidikan</p>
-                  <p className="text-xs text-slate-500">2 jam yang lalu • No: 421/123/2024</p>
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Surat Masuk Terbaru</h3>
+            <Mail size={16} className="text-blue-500" />
+          </div>
+          <div className="space-y-4">
+            {recentSurat.map((s) => (
+              <div key={s.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <p className="text-xs font-bold text-blue-600">{s.no_surat}</p>
+                <p className="text-sm font-semibold mt-1 truncate">{s.perihal}</p>
+                <p className="text-[10px] text-slate-400 mt-1">{s.asal_surat}</p>
               </div>
             ))}
+            {recentSurat.length === 0 && <p className="text-sm text-slate-400 italic text-center py-4">Belum ada data.</p>}
           </div>
         </div>
-        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-lg font-bold mb-6">Agenda Hari Ini</h3>
-          <div className="space-y-6">
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-              <p className="text-sm font-bold text-emerald-600">10:00 - 12:00</p>
-              <p className="font-semibold mt-1">Rapat Koordinasi Bulanan</p>
-              <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                <MapPin size={12} /> Ruang Rapat Utama
-              </p>
-            </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Agenda Umum</h3>
+            <Calendar size={16} className="text-amber-500" />
+          </div>
+          <div className="space-y-4">
+            {recentAgenda.map((a) => (
+              <div key={a.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <p className="text-xs font-bold text-amber-600">{a.tanggal} • {a.waktu}</p>
+                <p className="text-sm font-semibold mt-1 truncate">{a.nama_kegiatan}</p>
+                <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                  <MapPin size={10} /> {a.lokasi}
+                </p>
+              </div>
+            ))}
+            {recentAgenda.length === 0 && <p className="text-sm text-slate-400 italic text-center py-4">Belum ada data.</p>}
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Agenda Kepala</h3>
+            <User size={16} className="text-purple-500" />
+          </div>
+          <div className="space-y-4">
+            {recentAgendaKepala.map((a) => (
+              <div key={a.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <p className="text-xs font-bold text-purple-600">{a.tanggal} • {a.waktu}</p>
+                <p className="text-sm font-semibold mt-1 truncate">{a.nama_kegiatan}</p>
+                <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                  <MapPin size={10} /> {a.lokasi}
+                </p>
+              </div>
+            ))}
+            {recentAgendaKepala.length === 0 && <p className="text-sm text-slate-400 italic text-center py-4">Belum ada data.</p>}
           </div>
         </div>
       </div>
@@ -1124,6 +1178,285 @@ const AgendaView = () => {
   );
 };
 
+const AgendaKepalaView = () => {
+  const [agenda, setAgenda] = useState<Agenda[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    nama_kegiatan: '',
+    tanggal: '',
+    waktu: '',
+    lokasi: '',
+    keterangan: ''
+  });
+
+  const fetchAgenda = async () => {
+    const res = await fetch('/api/agenda-kepala');
+    setAgenda(await res.json());
+  };
+
+  useEffect(() => {
+    fetchAgenda();
+  }, []);
+
+  // Group agenda by date
+  const groupedAgenda = agenda.reduce((acc: { [key: string]: Agenda[] }, curr) => {
+    if (!acc[curr.tanggal]) {
+      acc[curr.tanggal] = [];
+    }
+    acc[curr.tanggal].push(curr);
+    return acc;
+  }, {});
+
+  // Sort dates descending
+  const sortedDates = Object.keys(groupedAgenda).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const url = editingId ? `/api/agenda-kepala/${editingId}` : '/api/agenda-kepala';
+      const method = editingId ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      const contentType = res.headers.get("content-type");
+      if (res.ok) {
+        setShowModal(false);
+        setEditingId(null);
+        fetchAgenda();
+        setFormData({
+          nama_kegiatan: '',
+          tanggal: '',
+          waktu: '',
+          lokasi: '',
+          keterangan: ''
+        });
+      } else {
+        let errorMessage = 'Terjadi kesalahan pada server.';
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await res.json();
+          errorMessage = errorData.error || errorMessage;
+        } else {
+          errorMessage = `Server Error (${res.status})`;
+        }
+        alert(`Gagal menyimpan agenda: ${errorMessage}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Terjadi kesalahan saat menyimpan agenda.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = (a: Agenda) => {
+    setEditingId(a.id);
+    setFormData({
+      nama_kegiatan: a.nama_kegiatan,
+      tanggal: a.tanggal,
+      waktu: a.waktu,
+      lokasi: a.lokasi,
+      keterangan: a.keterangan
+    });
+    setShowModal(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (confirm('Yakin ingin menghapus agenda ini?')) {
+      try {
+        const res = await fetch(`/api/agenda-kepala/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          fetchAgenda();
+        } else {
+          alert('Gagal menghapus agenda.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Terjadi kesalahan saat menghapus agenda.');
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Agenda Kepala Badan</h2>
+          <p className="text-slate-500">Jadwal kegiatan harian khusus Kepala Badan.</p>
+        </div>
+        <button 
+          onClick={() => setShowModal(true)}
+          className="bg-purple-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-purple-700 transition-colors shadow-lg shadow-purple-500/20"
+        >
+          <Plus size={20} />
+          Tambah Agenda
+        </button>
+      </div>
+
+      <div className="space-y-10">
+        {sortedDates.map((date) => (
+          <div key={date} className="relative pl-8 border-l-2 border-slate-200">
+            <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-purple-500 border-4 border-white shadow-sm" />
+            <div className="mb-6">
+              <h3 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                {new Date(date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {groupedAgenda[date].map((a) => (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  key={a.id} 
+                  className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative group"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-lg text-xs font-bold">
+                      {a.waktu}
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => handleEdit(a)}
+                        className="text-slate-400 hover:text-purple-600 transition-colors p-1"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(a.id)}
+                        className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  <h4 className="text-lg font-bold mb-2 leading-tight">{a.nama_kegiatan}</h4>
+                  <div className="space-y-2 text-sm text-slate-600">
+                    <p className="flex items-center gap-2">
+                      <MapPin size={14} className="text-slate-400" /> {a.lokasi}
+                    </p>
+                  </div>
+                  {a.keterangan && (
+                    <p className="mt-4 pt-4 border-t border-slate-100 text-sm text-slate-500 italic">
+                      "{a.keterangan}"
+                    </p>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        ))}
+        {agenda.length === 0 && (
+          <div className="py-20 text-center text-slate-400 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+            <Calendar size={48} className="mx-auto mb-4 opacity-20" />
+            <p className="font-medium">Belum ada agenda Kepala Badan yang dijadwalkan.</p>
+          </div>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {showModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-8 border-b border-slate-100 flex justify-between items-center shrink-0">
+                <h3 className="text-xl font-bold">{editingId ? 'Edit Agenda Kepala' : 'Tambah Agenda Kepala'}</h3>
+                <button onClick={() => { setShowModal(false); setEditingId(null); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+              <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-slate-500">Nama Kegiatan</label>
+                  <input 
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                    value={formData.nama_kegiatan}
+                    onChange={(e) => setFormData({...formData, nama_kegiatan: e.target.value})}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-500">Tanggal</label>
+                    <input 
+                      type="date"
+                      required
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                      value={formData.tanggal}
+                      onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-500">Waktu</label>
+                    <input 
+                      type="time"
+                      required
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                      value={formData.waktu}
+                      onChange={(e) => setFormData({...formData, waktu: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-slate-500">Lokasi</label>
+                  <input 
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                    value={formData.lokasi}
+                    onChange={(e) => setFormData({...formData, lokasi: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-slate-500">Keterangan</label>
+                  <textarea 
+                    rows={3}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                    value={formData.keterangan}
+                    onChange={(e) => setFormData({...formData, keterangan: e.target.value})}
+                  />
+                </div>
+                <div className="flex justify-end gap-4 pt-4">
+                  <button 
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={saving}
+                    className={`bg-purple-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-purple-700 transition-colors shadow-lg shadow-purple-500/20 flex items-center gap-2 ${saving ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  >
+                    {saving && <Clock className="animate-spin" size={18} />}
+                    {saving ? 'Menyimpan...' : 'Simpan Agenda'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 const SearchView = () => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SuratMasuk[]>([]);
@@ -1352,7 +1685,7 @@ const SearchView = () => {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [stats, setStats] = useState<Stats>({ suratCount: 0, disposisiCount: 0, agendaCount: 0 });
+  const [stats, setStats] = useState<Stats>({ suratCount: 0, disposisiCount: 0, agendaCount: 0, agendaKepalaCount: 0 });
 
   const fetchStats = async () => {
     const res = await fetch('/api/stats');
@@ -1381,6 +1714,7 @@ export default function App() {
               {activeTab === 'surat-masuk' && <SuratMasukView />}
               {activeTab === 'disposisi' && <DisposisiView />}
               {activeTab === 'agenda' && <AgendaView />}
+              {activeTab === 'agenda-kepala' && <AgendaKepalaView />}
               {activeTab === 'pencarian' && <SearchView />}
             </motion.div>
           </AnimatePresence>

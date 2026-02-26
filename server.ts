@@ -91,6 +91,15 @@ async function startServer() {
       lokasi TEXT,
       keterangan TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS agenda_kepala (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nama_kegiatan TEXT,
+      tanggal TEXT,
+      waktu TEXT,
+      lokasi TEXT,
+      keterangan TEXT
+    );
   `);
 
   // Migration: Add columns if they don't exist
@@ -302,12 +311,57 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // Agenda Kepala Badan
+  app.get("/api/agenda-kepala", (req, res) => {
+    try {
+      const rows = db.prepare("SELECT * FROM agenda_kepala ORDER BY tanggal ASC").all();
+      res.json(rows);
+    } catch (err: any) {
+      res.status(500).json({ error: `DB Error: ${err.message}` });
+    }
+  });
+
+  app.post("/api/agenda-kepala", (req, res) => {
+    try {
+      const { nama_kegiatan, tanggal, waktu, lokasi, keterangan } = req.body;
+      const info = db.prepare(`
+        INSERT INTO agenda_kepala (nama_kegiatan, tanggal, waktu, lokasi, keterangan)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(nama_kegiatan, tanggal, waktu, lokasi, keterangan);
+      res.json({ id: info.lastInsertRowid });
+    } catch (error) {
+      console.error("Error saving agenda-kepala:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  });
+
+  app.put("/api/agenda-kepala/:id", (req, res) => {
+    try {
+      const { nama_kegiatan, tanggal, waktu, lokasi, keterangan } = req.body;
+      db.prepare(`
+        UPDATE agenda_kepala 
+        SET nama_kegiatan = ?, tanggal = ?, waktu = ?, lokasi = ?, keterangan = ?
+        WHERE id = ?
+      `).run(nama_kegiatan, tanggal, waktu, lokasi, keterangan, req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating agenda-kepala:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  });
+
+  app.delete("/api/agenda-kepala/:id", (req, res) => {
+    db.prepare("DELETE FROM agenda_kepala WHERE id = ?").run(req.params.id);
+    res.json({ success: true });
+  });
+
   // Dashboard Stats
   app.get("/api/stats", (req, res) => {
     const suratCount = db.prepare("SELECT COUNT(*) as count FROM surat_masuk").get().count;
     const disposisiCount = db.prepare("SELECT COUNT(*) as count FROM disposisi").get().count;
     const agendaCount = db.prepare("SELECT COUNT(*) as count FROM agenda").get().count;
-    res.json({ suratCount, disposisiCount, agendaCount });
+    const agendaKepalaCount = db.prepare("SELECT COUNT(*) as count FROM agenda_kepala").get().count;
+    res.json({ suratCount, disposisiCount, agendaCount, agendaKepalaCount });
   });
 
   // Global Error Handler
