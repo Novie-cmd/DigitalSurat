@@ -66,11 +66,19 @@ db.exec(`
   );
 `);
 
-// Migration: Add file_path to surat_masuk if it doesn't exist
-try {
-  db.prepare("ALTER TABLE surat_masuk ADD COLUMN file_path TEXT").run();
-} catch (e) {
-  // Column already exists or table doesn't exist yet (handled by CREATE TABLE IF NOT EXISTS)
+// Migration: Add columns if they don't exist
+const migrations = [
+  { table: "surat_masuk", column: "file_path", type: "TEXT" },
+  { table: "surat_masuk", column: "keterangan", type: "TEXT" },
+  { table: "disposisi", column: "catatan", type: "TEXT" }
+];
+
+for (const m of migrations) {
+  try {
+    db.prepare(`ALTER TABLE ${m.table} ADD COLUMN ${m.column} ${m.type}`).run();
+  } catch (e) {
+    // Column already exists
+  }
 }
 
 async function startServer() {
@@ -89,35 +97,45 @@ async function startServer() {
   });
 
   app.post("/api/surat-masuk", upload.single("file"), (req, res) => {
-    const { no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan } = req.body;
-    const file_path = req.file ? `/uploads/${req.file.filename}` : null;
-    
-    const info = db.prepare(`
-      INSERT INTO surat_masuk (no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, file_path)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, file_path);
-    res.json({ id: info.lastInsertRowid });
+    try {
+      const { no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan } = req.body;
+      const file_path = req.file ? `/uploads/${req.file.filename}` : null;
+      
+      const info = db.prepare(`
+        INSERT INTO surat_masuk (no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, file_path)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, file_path);
+      res.json({ id: info.lastInsertRowid });
+    } catch (error) {
+      console.error("Error saving surat-masuk:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
   });
 
   app.put("/api/surat-masuk/:id", upload.single("file"), (req, res) => {
-    const { no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan } = req.body;
-    const { id } = req.params;
-    
-    if (req.file) {
-      const file_path = `/uploads/${req.file.filename}`;
-      db.prepare(`
-        UPDATE surat_masuk 
-        SET no_agenda = ?, no_surat = ?, tgl_surat = ?, tgl_diterima = ?, asal_surat = ?, perihal = ?, keterangan = ?, file_path = ?
-        WHERE id = ?
-      `).run(no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, file_path, id);
-    } else {
-      db.prepare(`
-        UPDATE surat_masuk 
-        SET no_agenda = ?, no_surat = ?, tgl_surat = ?, tgl_diterima = ?, asal_surat = ?, perihal = ?, keterangan = ?
-        WHERE id = ?
-      `).run(no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, id);
+    try {
+      const { no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan } = req.body;
+      const { id } = req.params;
+      
+      if (req.file) {
+        const file_path = `/uploads/${req.file.filename}`;
+        db.prepare(`
+          UPDATE surat_masuk 
+          SET no_agenda = ?, no_surat = ?, tgl_surat = ?, tgl_diterima = ?, asal_surat = ?, perihal = ?, keterangan = ?, file_path = ?
+          WHERE id = ?
+        `).run(no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, file_path, id);
+      } else {
+        db.prepare(`
+          UPDATE surat_masuk 
+          SET no_agenda = ?, no_surat = ?, tgl_surat = ?, tgl_diterima = ?, asal_surat = ?, perihal = ?, keterangan = ?
+          WHERE id = ?
+        `).run(no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, id);
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating surat-masuk:", error);
+      res.status(500).json({ error: "Internal Server Error" });
     }
-    res.json({ success: true });
   });
 
   app.delete("/api/surat-masuk/:id", (req, res) => {
@@ -141,22 +159,32 @@ async function startServer() {
   });
 
   app.post("/api/disposisi", (req, res) => {
-    const { surat_id, tujuan, isi, sifat, batas_waktu, catatan } = req.body;
-    const info = db.prepare(`
-      INSERT INTO disposisi (surat_id, tujuan, isi, sifat, batas_waktu, catatan)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(surat_id, tujuan, isi, sifat, batas_waktu, catatan);
-    res.json({ id: info.lastInsertRowid });
+    try {
+      const { surat_id, tujuan, isi, sifat, batas_waktu, catatan } = req.body;
+      const info = db.prepare(`
+        INSERT INTO disposisi (surat_id, tujuan, isi, sifat, batas_waktu, catatan)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(surat_id, tujuan, isi, sifat, batas_waktu, catatan);
+      res.json({ id: info.lastInsertRowid });
+    } catch (error) {
+      console.error("Error saving disposisi:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
   });
 
   app.put("/api/disposisi/:id", (req, res) => {
-    const { surat_id, tujuan, isi, sifat, batas_waktu, catatan } = req.body;
-    db.prepare(`
-      UPDATE disposisi 
-      SET surat_id = ?, tujuan = ?, isi = ?, sifat = ?, batas_waktu = ?, catatan = ?
-      WHERE id = ?
-    `).run(surat_id, tujuan, isi, sifat, batas_waktu, catatan, req.params.id);
-    res.json({ success: true });
+    try {
+      const { surat_id, tujuan, isi, sifat, batas_waktu, catatan } = req.body;
+      db.prepare(`
+        UPDATE disposisi 
+        SET surat_id = ?, tujuan = ?, isi = ?, sifat = ?, batas_waktu = ?, catatan = ?
+        WHERE id = ?
+      `).run(surat_id, tujuan, isi, sifat, batas_waktu, catatan, req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating disposisi:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
   });
 
   app.delete("/api/disposisi/:id", (req, res) => {
@@ -182,22 +210,32 @@ async function startServer() {
   });
 
   app.post("/api/agenda", (req, res) => {
-    const { nama_kegiatan, tanggal, waktu, lokasi, keterangan } = req.body;
-    const info = db.prepare(`
-      INSERT INTO agenda (nama_kegiatan, tanggal, waktu, lokasi, keterangan)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(nama_kegiatan, tanggal, waktu, lokasi, keterangan);
-    res.json({ id: info.lastInsertRowid });
+    try {
+      const { nama_kegiatan, tanggal, waktu, lokasi, keterangan } = req.body;
+      const info = db.prepare(`
+        INSERT INTO agenda (nama_kegiatan, tanggal, waktu, lokasi, keterangan)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(nama_kegiatan, tanggal, waktu, lokasi, keterangan);
+      res.json({ id: info.lastInsertRowid });
+    } catch (error) {
+      console.error("Error saving agenda:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
   });
 
   app.put("/api/agenda/:id", (req, res) => {
-    const { nama_kegiatan, tanggal, waktu, lokasi, keterangan } = req.body;
-    db.prepare(`
-      UPDATE agenda 
-      SET nama_kegiatan = ?, tanggal = ?, waktu = ?, lokasi = ?, keterangan = ?
-      WHERE id = ?
-    `).run(nama_kegiatan, tanggal, waktu, lokasi, keterangan, req.params.id);
-    res.json({ success: true });
+    try {
+      const { nama_kegiatan, tanggal, waktu, lokasi, keterangan } = req.body;
+      db.prepare(`
+        UPDATE agenda 
+        SET nama_kegiatan = ?, tanggal = ?, waktu = ?, lokasi = ?, keterangan = ?
+        WHERE id = ?
+      `).run(nama_kegiatan, tanggal, waktu, lokasi, keterangan, req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating agenda:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
   });
 
   app.delete("/api/agenda/:id", (req, res) => {

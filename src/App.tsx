@@ -244,7 +244,8 @@ const SuratMasukView = () => {
           keterangan: ''
         });
       } else {
-        alert('Gagal menyimpan data surat.');
+        const errorData = await res.json().catch(() => ({}));
+        alert(`Gagal menyimpan data surat: ${errorData.error || 'Terjadi kesalahan pada server.'}`);
       }
     } catch (err) {
       console.error(err);
@@ -589,7 +590,8 @@ const DisposisiView = () => {
           catatan: ''
         });
       } else {
-        alert('Gagal menyimpan disposisi.');
+        const errorData = await res.json().catch(() => ({}));
+        alert(`Gagal menyimpan disposisi: ${errorData.error || 'Terjadi kesalahan pada server.'}`);
       }
     } catch (err) {
       console.error(err);
@@ -879,7 +881,8 @@ const AgendaView = () => {
           keterangan: ''
         });
       } else {
-        alert('Gagal menyimpan agenda.');
+        const errorData = await res.json().catch(() => ({}));
+        alert(`Gagal menyimpan agenda: ${errorData.error || 'Terjadi kesalahan pada server.'}`);
       }
     } catch (err) {
       console.error(err);
