@@ -213,20 +213,34 @@ const SuratMasukView = () => {
     setSaving(true);
     
     try {
-      const data = new FormData();
-      Object.entries(formData).forEach(([key, value]) => {
-        data.append(key, value as string);
-      });
+      let fileData = null;
+      let fileName = null;
+
       if (file) {
-        data.append('file', file);
+        fileName = file.name;
+        fileData = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
       }
+
+      const payload = {
+        ...formData,
+        fileData,
+        fileName
+      };
 
       const url = editingId ? `/api/surat-masuk/${editingId}` : '/api/surat-masuk';
       const method = editingId ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
         method,
-        body: data
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
       });
       
       if (res.ok) {

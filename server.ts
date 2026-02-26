@@ -99,8 +99,8 @@ async function startServer() {
     }
   }
 
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
   app.use("/uploads", express.static(uploadDir));
 
   // Request logging
@@ -120,28 +120,28 @@ async function startServer() {
     res.json(rows);
   });
 
-  app.post("/api/surat-masuk", (req, res, next) => {
-    upload.single("file")(req, res, (err) => {
-      if (err) {
-        console.error("Multer error during POST:", err);
-        return res.status(400).json({ error: `Gagal upload file: ${err.message}` });
-      }
-      next();
-    });
-  }, (req, res) => {
-    console.log("POST /api/surat-masuk - Received request");
+  app.post("/api/surat-masuk", (req, res) => {
+    console.log("POST /api/surat-masuk - Received JSON request");
     try {
-      const { no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan } = req.body;
-      const file_path = req.file ? `/uploads/${req.file.filename}` : null;
+      const { no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, fileData, fileName } = req.body;
       
-      console.log("Data to insert:", { no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, file_path });
-
+      let file_path = null;
+      if (fileData && fileName) {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        const savedFileName = uniqueSuffix + "-" + fileName;
+        const fullPath = path.join(uploadDir, savedFileName);
+        
+        // Remove header if present (e.g., data:image/png;base64,)
+        const base64Data = fileData.replace(/^data:.*?;base64,/, "");
+        fs.writeFileSync(fullPath, base64Data, 'base64');
+        file_path = `/uploads/${savedFileName}`;
+      }
+      
       const info = db.prepare(`
         INSERT INTO surat_masuk (no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, file_path)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, file_path);
       
-      console.log("Insert successful, ID:", info.lastInsertRowid);
       res.json({ id: info.lastInsertRowid });
     } catch (error: any) {
       console.error("Error saving surat-masuk:", error);
@@ -149,21 +149,24 @@ async function startServer() {
     }
   });
 
-  app.put("/api/surat-masuk/:id", (req, res, next) => {
-    upload.single("file")(req, res, (err) => {
-      if (err) {
-        console.error("Multer error during PUT:", err);
-        return res.status(400).json({ error: `Gagal upload file: ${err.message}` });
-      }
-      next();
-    });
-  }, (req, res) => {
+  app.put("/api/surat-masuk/:id", (req, res) => {
+    console.log("PUT /api/surat-masuk - Received JSON request");
     try {
-      const { no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan } = req.body;
+      const { no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, fileData, fileName } = req.body;
       const { id } = req.params;
       
-      if (req.file) {
-        const file_path = `/uploads/${req.file.filename}`;
+      let file_path = null;
+      if (fileData && fileName) {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        const savedFileName = uniqueSuffix + "-" + fileName;
+        const fullPath = path.join(uploadDir, savedFileName);
+        
+        const base64Data = fileData.replace(/^data:.*?;base64,/, "");
+        fs.writeFileSync(fullPath, base64Data, 'base64');
+        file_path = `/uploads/${savedFileName}`;
+      }
+      
+      if (file_path) {
         db.prepare(`
           UPDATE surat_masuk 
           SET no_agenda = ?, no_surat = ?, tgl_surat = ?, tgl_diterima = ?, asal_surat = ?, perihal = ?, keterangan = ?, file_path = ?
