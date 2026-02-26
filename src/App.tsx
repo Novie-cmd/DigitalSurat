@@ -243,6 +243,7 @@ const SuratMasukView = () => {
         body: JSON.stringify(payload)
       });
       
+      const contentType = res.headers.get("content-type");
       if (res.ok) {
         setShowModal(false);
         setEditingId(null);
@@ -258,8 +259,16 @@ const SuratMasukView = () => {
           keterangan: ''
         });
       } else {
-        const errorData = await res.json().catch(() => ({}));
-        alert(`Gagal menyimpan data surat: ${errorData.error || 'Terjadi kesalahan pada server.'}`);
+        let errorMessage = 'Terjadi kesalahan pada server.';
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await res.json();
+          errorMessage = errorData.error || errorMessage;
+        } else {
+          const textError = await res.text();
+          console.error("Non-JSON error response:", textError);
+          errorMessage = `Server Error (${res.status}): Respons bukan JSON. Silakan cek konsol.`;
+        }
+        alert(`Gagal menyimpan data surat: ${errorMessage}`);
       }
     } catch (err) {
       console.error(err);
@@ -591,6 +600,7 @@ const DisposisiView = () => {
         })
       });
 
+      const contentType = res.headers.get("content-type");
       if (res.ok) {
         setShowModal(false);
         setEditingId(null);
@@ -604,8 +614,14 @@ const DisposisiView = () => {
           catatan: ''
         });
       } else {
-        const errorData = await res.json().catch(() => ({}));
-        alert(`Gagal menyimpan disposisi: ${errorData.error || 'Terjadi kesalahan pada server.'}`);
+        let errorMessage = 'Terjadi kesalahan pada server.';
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await res.json();
+          errorMessage = errorData.error || errorMessage;
+        } else {
+          errorMessage = `Server Error (${res.status})`;
+        }
+        alert(`Gagal menyimpan disposisi: ${errorMessage}`);
       }
     } catch (err) {
       console.error(err);
@@ -883,6 +899,7 @@ const AgendaView = () => {
         body: JSON.stringify(formData)
       });
 
+      const contentType = res.headers.get("content-type");
       if (res.ok) {
         setShowModal(false);
         setEditingId(null);
@@ -895,8 +912,14 @@ const AgendaView = () => {
           keterangan: ''
         });
       } else {
-        const errorData = await res.json().catch(() => ({}));
-        alert(`Gagal menyimpan agenda: ${errorData.error || 'Terjadi kesalahan pada server.'}`);
+        let errorMessage = 'Terjadi kesalahan pada server.';
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await res.json();
+          errorMessage = errorData.error || errorMessage;
+        } else {
+          errorMessage = `Server Error (${res.status})`;
+        }
+        alert(`Gagal menyimpan agenda: ${errorMessage}`);
       }
     } catch (err) {
       console.error(err);

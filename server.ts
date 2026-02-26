@@ -16,6 +16,15 @@ async function startServer() {
   // Initialize Database
   const db = new Database("surat.db");
   db.pragma('foreign_keys = ON');
+  db.pragma('journal_mode = WAL');
+
+  // Integrity Check
+  try {
+    const integrity = db.prepare("PRAGMA integrity_check").get();
+    console.log("Database integrity check:", integrity);
+  } catch (err) {
+    console.error("Database integrity check failed:", err);
+  }
 
   // Ensure uploads directory exists
   const uploadDir = path.resolve(__dirname, "uploads");
@@ -109,15 +118,17 @@ async function startServer() {
     next();
   });
 
-  // Health check
-  app.get("/api/health", (req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
-
   // API Routes
-  
+  app.get("/api/health", (req, res) => res.json({ status: "ok", database: "connected" }));
+
   // Surat Masuk
   app.get("/api/surat-masuk", (req, res) => {
-    const rows = db.prepare("SELECT * FROM surat_masuk ORDER BY created_at DESC").all();
-    res.json(rows);
+    try {
+      const rows = db.prepare("SELECT * FROM surat_masuk ORDER BY created_at DESC").all();
+      res.json(rows);
+    } catch (err: any) {
+      res.status(500).json({ error: `DB Error: ${err.message}` });
+    }
   });
 
   app.post("/api/surat-masuk", (req, res) => {
