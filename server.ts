@@ -9,84 +9,108 @@ import fs from "fs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const db = new Database("surat.db");
-db.pragma('foreign_keys = ON');
-
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
-
-// Configure Multer
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + "-" + file.originalname);
-  },
-});
-const upload = multer({ storage });
-
-// Initialize Database
-db.exec(`
-  CREATE TABLE IF NOT EXISTS surat_masuk (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    no_agenda TEXT,
-    no_surat TEXT,
-    tgl_surat TEXT,
-    tgl_diterima TEXT,
-    asal_surat TEXT,
-    perihal TEXT,
-    keterangan TEXT,
-    file_path TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS disposisi (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    surat_id INTEGER,
-    tujuan TEXT,
-    isi TEXT,
-    sifat TEXT,
-    batas_waktu TEXT,
-    catatan TEXT,
-    FOREIGN KEY (surat_id) REFERENCES surat_masuk(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS agenda (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nama_kegiatan TEXT,
-    tanggal TEXT,
-    waktu TEXT,
-    lokasi TEXT,
-    keterangan TEXT
-  );
-`);
-
-// Migration: Add columns if they don't exist
-const migrations = [
-  { table: "surat_masuk", column: "file_path", type: "TEXT" },
-  { table: "surat_masuk", column: "keterangan", type: "TEXT" },
-  { table: "disposisi", column: "catatan", type: "TEXT" }
-];
-
-for (const m of migrations) {
-  try {
-    db.prepare(`ALTER TABLE ${m.table} ADD COLUMN ${m.column} ${m.type}`).run();
-  } catch (e) {
-    // Column already exists
-  }
-}
-
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Initialize Database
+  const db = new Database("surat.db");
+  db.pragma('foreign_keys = ON');
+
+  // Ensure uploads directory exists
+  const uploadDir = path.resolve(__dirname, "uploads");
+  try {
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    fs.accessSync(uploadDir, fs.constants.W_OK);
+    console.log(`Uploads directory is writable: ${uploadDir}`);
+  } catch (err) {
+    console.error(`Uploads directory error:`, err);
+  }
+
+  // Check DB writability
+  try {
+    fs.accessSync(".", fs.constants.W_OK);
+    console.log("Current directory is writable");
+  } catch (err) {
+    console.error("Current directory is NOT writable");
+  }
+
+  // Configure Multer
+  const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      cb(null, uniqueSuffix + "-" + file.originalname);
+    },
+  });
+  const upload = multer({ storage });
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS surat_masuk (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      no_agenda TEXT,
+      no_surat TEXT,
+      tgl_surat TEXT,
+      tgl_diterima TEXT,
+      asal_surat TEXT,
+      perihal TEXT,
+      keterangan TEXT,
+      file_path TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS disposisi (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      surat_id INTEGER,
+      tujuan TEXT,
+      isi TEXT,
+      sifat TEXT,
+      batas_waktu TEXT,
+      catatan TEXT,
+      FOREIGN KEY (surat_id) REFERENCES surat_masuk(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS agenda (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nama_kegiatan TEXT,
+      tanggal TEXT,
+      waktu TEXT,
+      lokasi TEXT,
+      keterangan TEXT
+    );
+  `);
+
+  // Migration: Add columns if they don't exist
+  const migrations = [
+    { table: "surat_masuk", column: "file_path", type: "TEXT" },
+    { table: "surat_masuk", column: "keterangan", type: "TEXT" },
+    { table: "disposisi", column: "catatan", type: "TEXT" }
+  ];
+
+  for (const m of migrations) {
+    try {
+      db.prepare(`ALTER TABLE ${m.table} ADD COLUMN ${m.column} ${m.type}`).run();
+    } catch (e) {
+      // Column already exists
+    }
+  }
+
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
   app.use("/uploads", express.static(uploadDir));
+
+  // Request logging
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+
+  // Health check
+  app.get("/api/health", (req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
 
   // API Routes
   
@@ -96,15 +120,28 @@ async function startServer() {
     res.json(rows);
   });
 
-  app.post("/api/surat-masuk", upload.single("file"), (req, res) => {
+  app.post("/api/surat-masuk", (req, res, next) => {
+    upload.single("file")(req, res, (err) => {
+      if (err) {
+        console.error("Multer error during POST:", err);
+        return res.status(400).json({ error: `Gagal upload file: ${err.message}` });
+      }
+      next();
+    });
+  }, (req, res) => {
+    console.log("POST /api/surat-masuk - Received request");
     try {
       const { no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan } = req.body;
       const file_path = req.file ? `/uploads/${req.file.filename}` : null;
       
+      console.log("Data to insert:", { no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, file_path });
+
       const info = db.prepare(`
         INSERT INTO surat_masuk (no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, file_path)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, file_path);
+      
+      console.log("Insert successful, ID:", info.lastInsertRowid);
       res.json({ id: info.lastInsertRowid });
     } catch (error: any) {
       console.error("Error saving surat-masuk:", error);
@@ -112,7 +149,15 @@ async function startServer() {
     }
   });
 
-  app.put("/api/surat-masuk/:id", upload.single("file"), (req, res) => {
+  app.put("/api/surat-masuk/:id", (req, res, next) => {
+    upload.single("file")(req, res, (err) => {
+      if (err) {
+        console.error("Multer error during PUT:", err);
+        return res.status(400).json({ error: `Gagal upload file: ${err.message}` });
+      }
+      next();
+    });
+  }, (req, res) => {
     try {
       const { no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan } = req.body;
       const { id } = req.params;
@@ -249,6 +294,12 @@ async function startServer() {
     const disposisiCount = db.prepare("SELECT COUNT(*) as count FROM disposisi").get().count;
     const agendaCount = db.prepare("SELECT COUNT(*) as count FROM agenda").get().count;
     res.json({ suratCount, disposisiCount, agendaCount });
+  });
+
+  // Global Error Handler
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error("Global Error:", err);
+    res.status(500).json({ error: err.message || "Internal Server Error" });
   });
 
   // Vite middleware for development
