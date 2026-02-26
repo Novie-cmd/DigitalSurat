@@ -52,6 +52,7 @@ interface Agenda {
   waktu: string;
   lokasi: string;
   keterangan: string;
+  pelaksana?: string;
 }
 
 interface Stats {
@@ -199,6 +200,11 @@ const Dashboard = ({ stats }: { stats: Stats }) => {
                 <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
                   <MapPin size={10} /> {a.lokasi}
                 </p>
+                {a.pelaksana && (
+                  <p className="text-[10px] text-emerald-600 mt-1 font-medium">
+                    Pelaksana: {a.pelaksana}
+                  </p>
+                )}
               </div>
             ))}
             {recentAgenda.length === 0 && <p className="text-sm text-slate-400 italic text-center py-4">Belum ada data.</p>}
@@ -928,7 +934,8 @@ const AgendaView = () => {
     tanggal: '',
     waktu: '',
     lokasi: '',
-    keterangan: ''
+    keterangan: '',
+    pelaksana: ''
   });
 
   const fetchAgenda = async () => {
@@ -1051,6 +1058,11 @@ const AgendaView = () => {
               <p className="flex items-center gap-2">
                 <MapPin size={14} className="text-slate-400" /> {a.lokasi}
               </p>
+              {a.pelaksana && (
+                <p className="flex items-center gap-2">
+                  <User size={14} className="text-slate-400" /> {a.pelaksana}
+                </p>
+              )}
             </div>
             {a.keterangan && (
               <p className="mt-4 pt-4 border-t border-slate-100 text-sm text-slate-500 italic">
@@ -1141,6 +1153,15 @@ const AgendaView = () => {
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
                     value={formData.lokasi}
                     onChange={(e) => setFormData({...formData, lokasi: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-slate-500">Pelaksana (Bisa lebih dari 1)</label>
+                  <input 
+                    placeholder="Contoh: Bidang IT, Sekretaris, dsb"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                    value={formData.pelaksana}
+                    onChange={(e) => setFormData({...formData, pelaksana: e.target.value})}
                   />
                 </div>
                 <div className="space-y-2">

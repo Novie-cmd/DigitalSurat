@@ -89,7 +89,8 @@ async function startServer() {
       tanggal TEXT,
       waktu TEXT,
       lokasi TEXT,
-      keterangan TEXT
+      keterangan TEXT,
+      pelaksana TEXT
     );
 
     CREATE TABLE IF NOT EXISTS agenda_kepala (
@@ -106,7 +107,8 @@ async function startServer() {
   const migrations = [
     { table: "surat_masuk", column: "file_path", type: "TEXT" },
     { table: "surat_masuk", column: "keterangan", type: "TEXT" },
-    { table: "disposisi", column: "catatan", type: "TEXT" }
+    { table: "disposisi", column: "catatan", type: "TEXT" },
+    { table: "agenda", column: "pelaksana", type: "TEXT" }
   ];
 
   for (const m of migrations) {
@@ -279,11 +281,11 @@ async function startServer() {
 
   app.post("/api/agenda", (req, res) => {
     try {
-      const { nama_kegiatan, tanggal, waktu, lokasi, keterangan } = req.body;
+      const { nama_kegiatan, tanggal, waktu, lokasi, keterangan, pelaksana } = req.body;
       const info = db.prepare(`
-        INSERT INTO agenda (nama_kegiatan, tanggal, waktu, lokasi, keterangan)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(nama_kegiatan, tanggal, waktu, lokasi, keterangan);
+        INSERT INTO agenda (nama_kegiatan, tanggal, waktu, lokasi, keterangan, pelaksana)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(nama_kegiatan, tanggal, waktu, lokasi, keterangan, pelaksana);
       res.json({ id: info.lastInsertRowid });
     } catch (error) {
       console.error("Error saving agenda:", error);
@@ -293,12 +295,12 @@ async function startServer() {
 
   app.put("/api/agenda/:id", (req, res) => {
     try {
-      const { nama_kegiatan, tanggal, waktu, lokasi, keterangan } = req.body;
+      const { nama_kegiatan, tanggal, waktu, lokasi, keterangan, pelaksana } = req.body;
       db.prepare(`
         UPDATE agenda 
-        SET nama_kegiatan = ?, tanggal = ?, waktu = ?, lokasi = ?, keterangan = ?
+        SET nama_kegiatan = ?, tanggal = ?, waktu = ?, lokasi = ?, keterangan = ?, pelaksana = ?
         WHERE id = ?
-      `).run(nama_kegiatan, tanggal, waktu, lokasi, keterangan, req.params.id);
+      `).run(nama_kegiatan, tanggal, waktu, lokasi, keterangan, pelaksana, req.params.id);
       res.json({ success: true });
     } catch (error) {
       console.error("Error updating agenda:", error);
