@@ -106,9 +106,9 @@ async function startServer() {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, file_path);
       res.json({ id: info.lastInsertRowid });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving surat-masuk:", error);
-      res.status(500).json({ error: "Internal Server Error" });
+      res.status(500).json({ error: error.message || "Internal Server Error" });
     }
   });
 
@@ -132,9 +132,9 @@ async function startServer() {
         `).run(no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, id);
       }
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating surat-masuk:", error);
-      res.status(500).json({ error: "Internal Server Error" });
+      res.status(500).json({ error: error.message || "Internal Server Error" });
     }
   });
 
