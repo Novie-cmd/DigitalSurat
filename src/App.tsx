@@ -970,7 +970,8 @@ const AgendaView = () => {
           tanggal: '',
           waktu: '',
           lokasi: '',
-          keterangan: ''
+          keterangan: '',
+          pelaksana: ''
         });
       } else {
         let errorMessage = 'Terjadi kesalahan pada server.';
@@ -997,7 +998,8 @@ const AgendaView = () => {
       tanggal: a.tanggal,
       waktu: a.waktu,
       lokasi: a.lokasi,
-      keterangan: a.keterangan
+      keterangan: a.keterangan,
+      pelaksana: a.pelaksana || ''
     });
     setShowModal(true);
   };

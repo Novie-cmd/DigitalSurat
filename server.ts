@@ -6,6 +6,10 @@ import { fileURLToPath } from "url";
 import multer from "multer";
 import fs from "fs";
 
+console.log("--- SERVER STARTING ---");
+console.log("NODE_ENV:", process.env.NODE_ENV);
+console.log("CWD:", process.cwd());
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -14,7 +18,9 @@ async function startServer() {
   const PORT = 3000;
 
   // Initialize Database
-  const db = new Database("surat.db");
+  const dbPath = path.resolve(__dirname, "surat.db");
+  console.log(`Using database at: ${dbPath}`);
+  const db = new Database(dbPath);
   db.pragma('foreign_keys = ON');
   db.pragma('journal_mode = WAL');
 
@@ -28,12 +34,14 @@ async function startServer() {
 
   // Ensure uploads directory exists
   const uploadDir = path.resolve(__dirname, "uploads");
+  console.log(`Checking uploads directory: ${uploadDir}`);
   try {
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
+      console.log("Created uploads directory");
     }
     fs.accessSync(uploadDir, fs.constants.W_OK);
-    console.log(`Uploads directory is writable: ${uploadDir}`);
+    console.log(`Uploads directory is writable`);
   } catch (err) {
     console.error(`Uploads directory error:`, err);
   }
@@ -130,7 +138,24 @@ async function startServer() {
   });
 
   // API Routes
-  app.get("/api/health", (req, res) => res.json({ status: "ok", database: "connected" }));
+  app.get("/api/health", (req, res) => {
+    console.log("Health check requested");
+    res.json({ 
+      status: "ok", 
+      database: "connected",
+      env: process.env.NODE_ENV || "development",
+      time: new Date().toISOString()
+    });
+  });
+
+  app.get("/api/debug", (req, res) => {
+    res.json({
+      dirname: __dirname,
+      existsDist: fs.existsSync(path.join(__dirname, "dist")),
+      existsUploads: fs.existsSync(uploadDir),
+      cwd: process.cwd()
+    });
+  });
 
   // Surat Masuk
   app.get("/api/surat-masuk", (req, res) => {
@@ -143,7 +168,8 @@ async function startServer() {
   });
 
   app.post("/api/surat-masuk", (req, res) => {
-    console.log("POST /api/surat-masuk - Received JSON request");
+    const payloadSize = JSON.stringify(req.body).length;
+    console.log(`POST /api/surat-masuk - Received request, payload size: ${payloadSize} bytes`);
     try {
       const { no_agenda, no_surat, tgl_surat, tgl_diterima, asal_surat, perihal, keterangan, fileData, fileName } = req.body;
       
@@ -374,20 +400,34 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    console.log("Starting in DEVELOPMENT mode with Vite middleware");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.join(__dirname, "dist")));
+    const distPath = path.join(__dirname, "dist");
+    console.log(`Starting in PRODUCTION mode, serving from: ${distPath}`);
+    if (!fs.existsSync(distPath)) {
+      console.error("CRITICAL: dist directory not found!");
+    }
+    app.use(express.static(distPath));
     app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "dist", "index.html"));
+      res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
+  process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  });
+
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
   });
 }
 
